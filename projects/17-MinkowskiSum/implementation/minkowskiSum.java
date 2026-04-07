@@ -1,6 +1,6 @@
 import java.util.*;
 
-public class Main {
+public class minkowskiSum {
     static Scanner sc = new Scanner(System.in);
     static List<Point> input;
     public static void main(String[] args){
