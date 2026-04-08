@@ -200,15 +200,10 @@ public class MassiveInteger{
          */
 
         //similar to in addition, checks if it makes more sense to reformulate as the other one
-        if (this.isPositive() && !b.isPositive()){
+        if (this.isPositive() != b.isPositive()){
             MassiveInteger bMag = createShallowCopy(b);
             bMag.flipSign();
             return this.add(bMag);
-        }
-        if (!this.isPositive() && b.isPositive()){
-            MassiveInteger thisMag = createShallowCopy(this);
-            thisMag.flipSign();
-            return b.add(thisMag);
         }
 
         //we want to subtract the 'bigger' one from the 'smaller' one
