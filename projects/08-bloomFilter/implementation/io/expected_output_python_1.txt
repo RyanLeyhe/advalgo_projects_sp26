@@ -10,19 +10,3 @@ breeze	member
 this-string-was-never-added	absent
 aurora	member
 breeze	member
-
-m=115 k=6 n=12 p=0.01
-hello	absent
-world	absent
-anything	absent
-
-m=93 k=4 n=15 p=0.05
-red	member
-green	member
-cyan-never-added	absent
-yellow	member
-magenta-never-added	absent
-blue	member
-orange	member
-violet	member
-pink-never-added	absent

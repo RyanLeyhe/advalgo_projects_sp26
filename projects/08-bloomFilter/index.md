@@ -17,14 +17,13 @@ Go [back to home page](../../index.html)
 	- [C++](./implementation/bloomFilter.cpp)
 	- [Java](./implementation/Main.java) (with [BloomFilter.java](./implementation/BloomFilter.java))
 	- [Python](./implementation/BloomFilter.py)
-- I/O
-	- [test.txt](./implementation/io/test.txt)
-	- Expected outputs (same input format for each language on `test.txt`):
-		- [expected_output.txt](./implementation/io/expected_output_python.txt) — Python (`BloomFilter.py`)
-		- [expected_output_java.txt](./implementation/io/expected_output_java.txt) — Java (placeholder; fill in)
-		- [expected_output_cpp.txt](./implementation/io/expected_output_cpp.txt) — C++ (placeholder; fill in)
+- I/O (three separate cases; first line of each test file is the case count, usually `1`)
+	- Tests: [test_1.txt](./implementation/io/test_1.txt), [test_2.txt](./implementation/io/test_2.txt), [test_3.txt](./implementation/io/test_3.txt)
+	- Python expected: [expected_output_python_1.txt](./implementation/io/expected_output_python_1.txt), [_2](./implementation/io/expected_output_python_2.txt), [_3](./implementation/io/expected_output_python_3.txt)
+	- [expected_output_java.txt](./implementation/io/expected_output_java.txt) — Java (placeholder)
+	- [expected_output_cpp.txt](./implementation/io/expected_output_cpp.txt) — C++ (placeholder)
 
-**Implementation note.** Different hash schemes change which queries look like false positives vs absent; compare each implementation to its own expected file once populated.
+**Implementation note.** Different hash schemes change false positives vs absent; compare each language to its own expected file. Example: `python3 BloomFilter.py implementation/io/test_1.txt` then diff against `expected_output_python_1.txt`.
 
 <a name="overview"></a>Slides
 ---------------------------------------

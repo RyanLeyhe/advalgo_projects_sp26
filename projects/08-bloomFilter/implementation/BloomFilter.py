@@ -1,4 +1,5 @@
-# Run: python3 BloomFilter.py < test.txt
+# Run: python3 BloomFilter.py io/test_1.txt
+#   or redirect stdin: python3 BloomFilter.py < io/test_1.txt
 # Deps: pip install -r requirements.txt (same folder)
 
 import math
@@ -94,51 +95,62 @@ class BloomFilter:
 
 def main():
     """
-    stdin: first line = t (number of test cases).
+    stdin or path: first line = t (number of test cases in this stream).
     Each case: line 'n p insert_count query_count',
     then insert_count strings, a line exactly '---', then query_count strings.
     Prints m, k, n, p and one line per query (member / false_positive / absent).
     """
-    num_tests = int(sys.stdin.readline().strip())
+    if len(sys.argv) > 1:
+        stream = open(sys.argv[1], encoding="utf-8")
+        own = True
+    else:
+        stream = sys.stdin
+        own = False
 
-    for t in range(num_tests):
-        n, p, i, q = sys.stdin.readline().split()
-        expected_item_count = int(n)
-        false_positive_prob = float(p)
-        insert_count = int(i)
-        query_count = int(q)
+    try:
+        num_tests = int(stream.readline().strip())
 
-        inserted_keys = []
-        for _ in range(insert_count):
-            inserted_keys.append(sys.stdin.readline().strip())
+        for t in range(num_tests):
+            n, p, i, q = stream.readline().split()
+            expected_item_count = int(n)
+            false_positive_prob = float(p)
+            insert_count = int(i)
+            query_count = int(q)
 
-        sep = sys.stdin.readline().strip()
-        if sep != "---":
-            sys.exit(f"expected --- after inserts, got {sep!r}")
+            inserted_keys = []
+            for _ in range(insert_count):
+                inserted_keys.append(stream.readline().strip())
 
-        query_keys = []
-        for _ in range(query_count):
-            query_keys.append(sys.stdin.readline().strip())
+            sep = stream.readline().strip()
+            if sep != "---":
+                sys.exit(f"expected --- after inserts, got {sep!r}")
 
-        # Ground truth for printing; the Bloom structure alone does not separate member vs FP. We use a set here.
-        inserted_set = set(inserted_keys)
-        bloom = BloomFilter(expected_item_count, false_positive_prob)
-        for key in inserted_keys:
-            bloom.add(key)
+            query_keys = []
+            for _ in range(query_count):
+                query_keys.append(stream.readline().strip())
 
-        print(
-            f"m={bloom.size} k={bloom.hash_count} n={expected_item_count} p={false_positive_prob:.2f}"
-        )
-        for key in query_keys:
-            if bloom.check(key):
-                if key in inserted_set:
-                    print(f"{key}\tmember")
+            # Ground truth for printing; the Bloom structure alone does not separate member vs FP. We use a set here.
+            inserted_set = set(inserted_keys)
+            bloom = BloomFilter(expected_item_count, false_positive_prob)
+            for key in inserted_keys:
+                bloom.add(key)
+
+            print(
+                f"m={bloom.size} k={bloom.hash_count} n={expected_item_count} p={false_positive_prob:.2f}"
+            )
+            for key in query_keys:
+                if bloom.check(key):
+                    if key in inserted_set:
+                        print(f"{key}\tmember")
+                    else:
+                        print(f"{key}\tfalse_positive")
                 else:
-                    print(f"{key}\tfalse_positive")
-            else:
-                print(f"{key}\tabsent")
-        if t < num_tests - 1:
-            print()
+                    print(f"{key}\tabsent")
+            if t < num_tests - 1:
+                print()
+    finally:
+        if own:
+            stream.close()
 
 
 if __name__ == "__main__":

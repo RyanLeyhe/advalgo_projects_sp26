@@ -107,7 +107,7 @@ int main() {
             groundTruth.insert(entry);
         }
 
-        // our test.txt has a --- separator
+        // test files use a --- line between inserts and queries
         std::string separator;
         std::cin >> separator;
         if (separator != "---") {
