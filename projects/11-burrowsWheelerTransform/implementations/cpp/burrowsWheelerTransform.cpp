@@ -3,6 +3,8 @@
 #include <vector>
 #include <iostream>
 
+// See the Python implementation for a summary and explanation of the algorithm. 
+
 using namespace std;
 
 string burrowsWheelerTransform(string s){
