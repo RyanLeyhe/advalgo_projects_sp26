@@ -1,26 +1,47 @@
-import java.util.Random;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class TreapCustom {
     /*
-    a treap is a binary search tree where each node also has a random priority.
-    the tree is heap ordered by priority, while also maintaining the binary search tree property by key.
-    insertions and deletions are done by splitting and merging the treap based on the priorities of the nodes.
-    this allows for efficient insertions, deletions, and searches while keeping the tree balanced on average.
+    A treap is a binary search tree where each node also has a random priority.
+    The tree is heap ordered by priority, while also maintaining the binary search tree property by key.
+    This allows for efficient insertions, deletions, and searches while keeping the tree balanced on average.
+
+    For the new version of the assignment, we augment every node with:
+    - size of the subtree
+    - sum of all keys in the subtree
+
+    This supports:
+    - KTH(k)
+    - COUNT(x)
+    - RANGE(l, r)
+    - SUM(l, r)
+
+    We also change main() so that instead of hardcoding a few tests,
+    it reads all *_in.txt files from a folder called inputoutputtests,
+    runs each one, and compares the result to the matching *_out.txt file.
     */
 
     // we need a random number generator to assign priorities to the nodes
     private static final Random rand = new Random();
 
-    // we simply define a node to represent the nodes in the treap
+    // define a node for the treap
     static class Node {
         int key;
         int priority;
         Node left, right;
-        int size = 1; // size of the subtree rooted at this node
+
+        int size;          // number of nodes in this subtree
+        long subtreeSum;   // sum of all keys in this subtree
 
         Node(int key) {
             this.key = key;
             this.priority = rand.nextInt();
+            this.size = 1;
+            this.subtreeSum = key;
         }
     }
 
@@ -31,177 +52,142 @@ public class TreapCustom {
         return (n == null) ? 0 : n.size;
     }
 
-    // update the size after modifications
+    // helper to safely get subtree sum
+    private long sum(Node n) {
+        return (n == null) ? 0L : n.subtreeSum;
+    }
+
+    /*
+    update all augmented metadata after changes
+
+    Before, we only needed to update subtree size.
+    Now, for the SUM query, we also need to maintain subtreeSum.
+
+    Any time we change left/right child pointers, we should call update().
+    */
     private void update(Node n) {
         if (n != null) {
             n.size = 1 + size(n.left) + size(n.right);
+            n.subtreeSum = (long) n.key + sum(n.left) + sum(n.right);
         }
     }
 
-        /*
-        Splits the treap into two treaps by key:
-        - left contains all keys <= key
-        - right contains all keys > key
+    /*
+    Splits the treap into two treaps by key:
+    - left contains all keys <= key
+    - right contains all keys > key
 
-        If root.key <= key, root belongs in the left treap, but some nodes in root.right may still be <= key,
-        so we split root.right. Otherwise root belongs in the right treap, and we split root.left.
-        */
+    If root.key <= key, root belongs in the left treap,
+    but some nodes in root.right may still be <= key, so we split root.right.
 
+    Otherwise root belongs in the right treap, and we split root.left.
+    */
     private Node[] split(Node root, int key) {
         if (root == null) {
             return new Node[]{null, null};
         }
-        // root less than or equal to the key, we split the right subtree
+
+        // root belongs in the left treap, so split the right subtree
         if (root.key <= key) {
             Node[] res = split(root.right, key);
-            // we want to set the root.right to be all the values in the right subtree that are less than or equal to the key we are at
-            // this allows us to make sure none of the wrong values are in the wrong treap
-            
+
+            // res[0] should stay with root as its new right child
             root.right = res[0];
-            // need to update the size of the root after modifying its right
+
+            // refresh metadata after changing root.right
             update(root);
-            // we return the root as the left treap and res[1] as the right treap
-            // so when we recurse back up, we will have the correct treaps with the correct priorities and keys
-            
+
+            // root is part of the left result, res[1] is the right result
             return new Node[]{root, res[1]};
         } else {
+            // root belongs in the right treap, so split the left subtree
             Node[] res = split(root.left, key);
-            // similar logic to the above case, just simply reversed because we are splitting the left subtree instead of the right subtree
 
+            // res[1] should stay with root as its new left child
             root.left = res[1];
-            //  need to update the size of the root after modifying its left
+
+            // refresh metadata after changing root.left
             update(root);
 
+            // res[0] is the left result, root is the right result
             return new Node[]{res[0], root};
         }
     }
 
     /*
-    these are custom functions for the hw
-    */
-    // find the k-th smallest element in the treap (1-indexed)
-    // this is to find the kth smallest element in the treap, we can use the size of the left subtree to determine whether we need to go left, right, or if we found the kth smallest element
-    // this is because if the size of the left subtree is k-1, then the current node is the kth smallest element, if the size of the left subtree is greater than or equal to k, then we need to go left, and if the size of the left subtree is less than k-1, then we need to go right and change k to be k - leftSize - 1 because we are skipping over the left subtree and the curr node and trying to find the kth smallest element in the right subtree
-    private Node findkthsmallest(Node root, int k) {
-        if (root == null || k <= 0 || k > size(root)) {
-            return null; // k is out of bounds
-        }
-        int leftSize = size(root.left);
-        if (k == leftSize + 1) {
-            return root; // found the k-th smallest
-        } else if (k <= leftSize) {
-            return findkthsmallest(root.left, k); // search in the left subtree
-        } else {
-            return findkthsmallest(root.right, k - leftSize - 1); // search in the right subtree
-        }
+    Assumes all keys in left are <= all keys in right.
 
-    }
+    The point of merge is to take two treaps and combine them
+    while maintaining both:
+    - BST order by key
+    - heap order by priority
 
-    // count -> number of nodes in the treap less than or equal to a given key
-    // this is simply looking for the number of nodes in the treap that are less than or equal to a given key
-    // we do this by traversing the treap and if the current node is less than or equal to the key, all the nodes in the left are less but there could be nodes in the right that are not so we need to find all the nodes that are less than or equal to the key in the right subtree
-    private int countLessThanOrEqual(Node root, int key) {
-        if (root == null) {
-            return 0; // base case: empty tree has 0 nodes
-        }
-        if (root.key <= key) {
-            // current node is less than or equal to key, so count it and continue to the right
-            return 1 + size(root.left) + countLessThanOrEqual(root.right, key);
-        } else {
-            // current node is greater than key, so continue to the left
-            return countLessThanOrEqual(root.left, key);
-        }
-    }
-
-    // find the range count of nodes in the treap between two keys (inclusive)
-    // we need to use our countlessthanorequalto function to determine count(right) - count(left) to get the number of nodes in the range [low, high],
-
-    private int countInRange(Node root, int low, int high) {
-        if (low > high) return 0;
-
-        return countLessThanOrEqual(root, high) - countLessThanOrEqual(root, low - 1);
-    }
-    /*
-    end of custom functions
-    */
-    /*
-
-    /*
-    Assumes all keys in left are <= all keys in right
-    the point of the merge function is to take two treaps and merge them together
-    in a manner that maintains the properties of the treap,
-    so we will compare the priorities of the roots of the two treaps and merge the one with the higher priority as the new root,
-    and then we will merge the other treap as a child of the new root,
-    we will do this recursively until we have merged the two treaps together
+    We choose the root with the higher priority, then recursively merge the remaining side.
     */
     private Node merge(Node left, Node right) {
         if (left == null) return right;
         if (right == null) return left;
 
-        // we call merge recursively on the child of the root with the higher priority, and then return the new root of the merged treap
-        // if the left priority is higher, choose the left root 
-        // we will merge the right treap as the right child of the left root, and then return the left root as the new root of the merged treap
+        // if left root has higher priority, it becomes the new root
         if (left.priority > right.priority) {
             left.right = merge(left.right, right);
-            // need to update the size of the left after modifying its right
+
+            // update after changing child pointer
             update(left);
             return left;
-        // if the right priority is higher, choose the right root
         } else {
+            // otherwise right root becomes the new root
             right.left = merge(left, right.left);
-            //  need to update the size of the right after modifying its left
+
+            // update after changing child pointer
             update(right);
             return right;
         }
     }
 
     /*
-    this insert is straightforward, so if we hit the case in our recursion that the node were on's
-    priority is less than the inserted node, we will split the current node by the inserted node's key and make the inserted node the new root of the subtree,
-    and then we will set the left and right children of the new root to be the two treaps that we got from the split function 
-    this allows us to insert our node while maintaining treap property
-    */
-    // we call insert separately because we need to create a new node
+    insert is done by either:
+    - making the new node the root of a subtree if its priority is higher, using split
+    - or recursively descending like a BST if its priority is lower
 
+    Since the assignment says inserted values are unique, duplicate keys are ignored.
+    */
     public void insert(int key) {
         root = insert(root, new Node(key));
     }
 
     private Node insert(Node root, Node node) {
         if (root == null) return node;
-        // check if node priority is > root priority,
-        // if it is we call our split 
-        // the point of calling split is to maintain the treap properties, we will set the left and right children of the new root to be the two treaps that we got from the split function, 
+
+        // if the new node has higher priority, it becomes root of this subtree
         if (node.priority > root.priority) {
             Node[] halves = split(root, node.key);
 
             node.left = halves[0];
             node.right = halves[1];
-            // need to update the size of the node after setting its left and right
-            update(node);
 
+            // update after attaching children
+            update(node);
             return node;
         }
-        // traverse the tree to maintain binary search tree order
+
+        // otherwise, descend by BST order
         if (node.key < root.key) {
             root.left = insert(root.left, node);
-        
         } else if (node.key > root.key) {
             root.right = insert(root.right, node);
         }
-        // need to update the size of the root after modifying its left or right
+        // if equal, do nothing since duplicates are ignored
+
+        // refresh metadata after modifying a child
         update(root);
         return root;
     }
 
     /*
-    the delete function is easy because all we do is merge
-    the left and right subtrees of the node we want to delete,
-    this merge will maintain the treap properties and we will return the new root of the merged treap,
-    skipping over the node we want to delete, and then return all the way back up with the new treap
+    delete works by finding the node to remove, then merging its left and right children.
+    This skips over the deleted node while preserving treap properties.
     */
-
-    // again call it separately, same reason as insert
     public void delete(int key) {
         root = delete(root, key);
     }
@@ -209,31 +195,32 @@ public class TreapCustom {
     private Node delete(Node root, int key) {
         if (root == null) return null;
 
-        // if found, remove node by merging its children
+        // if found, remove it by merging its two children
         if (root.key == key) {
             return merge(root.left, root.right);
         }
 
-        // traverse to locate node, then refresh pointer
+        // otherwise recurse to locate it
         if (key < root.key) {
             root.left = delete(root.left, key);
         } else {
             root.right = delete(root.right, key);
         }
-        // need to update the size of the root after modifying its left or right
+
+        // refresh metadata after modifying a child
         update(root);
         return root;
     }
 
-    // search for key in treap (BST traversal)
+    // search is just normal BST traversal
     public boolean search(int key) {
         return search(root, key);
     }
 
     private boolean search(Node root, int key) {
-        // normal search
         if (root == null) return false;
         if (root.key == key) return true;
+
         if (key < root.key) {
             return search(root.left, key);
         } else {
@@ -241,7 +228,109 @@ public class TreapCustom {
         }
     }
 
-    // inorder traversal for sorted output (by key)
+    /*
+    these are the custom query functions for the assignment
+    */
+
+    // KTH(k): find the k-th smallest element in the treap, 1-indexed
+    public Integer kth(int k) {
+        Node ans = findKthSmallest(root, k);
+        return (ans == null) ? null : ans.key;
+    }
+
+    /*
+    We use subtree sizes to find the k-th smallest.
+    Let leftSize = size(root.left).
+
+    - if k == leftSize + 1, current root is the answer
+    - if k <= leftSize, answer is in the left subtree
+    - otherwise answer is in the right subtree, but we skip leftSize + 1 nodes
+    */
+    private Node findKthSmallest(Node root, int k) {
+        if (root == null || k <= 0 || k > size(root)) {
+            return null;
+        }
+
+        int leftSize = size(root.left);
+
+        if (k == leftSize + 1) {
+            return root;
+        } else if (k <= leftSize) {
+            return findKthSmallest(root.left, k);
+        } else {
+            return findKthSmallest(root.right, k - leftSize - 1);
+        }
+    }
+
+    // COUNT(x): number of keys <= x
+    public int countLessThanOrEqual(int key) {
+        return countLessThanOrEqual(root, key);
+    }
+
+    /*
+    If root.key <= key, then:
+    - every node in root.left is also <= key
+    - current root counts too
+    - we still need to search root.right
+
+    If root.key > key, we must search only the left subtree.
+    */
+    private int countLessThanOrEqual(Node root, int key) {
+        if (root == null) {
+            return 0;
+        }
+
+        if (root.key <= key) {
+            return 1 + size(root.left) + countLessThanOrEqual(root.right, key);
+        } else {
+            return countLessThanOrEqual(root.left, key);
+        }
+    }
+
+    // RANGE(l, r): number of keys in [l, r]
+    public int countInRange(int low, int high) {
+        if (low > high) return 0;
+
+        // count <= high minus count <= low-1
+        return countLessThanOrEqual(root, high) - countLessThanOrEqual(root, low - 1);
+    }
+
+    /*
+    SUM queries are the new extension.
+
+    We use subtreeSum similarly to how COUNT uses subtree size.
+
+    sumLessThanOrEqual(x) gives the sum of all keys <= x.
+    Then:
+        SUM(l, r) = sum<=r - sum<=(l-1)
+    */
+
+    // SUM of all keys <= key
+    private long sumLessThanOrEqual(Node root, int key) {
+        if (root == null) {
+            return 0L;
+        }
+
+        if (root.key <= key) {
+            // everything in the left subtree is <= key, so we can take its whole sum
+            // also include the current root, then continue to the right
+            return sum(root.left) + root.key + sumLessThanOrEqual(root.right, key);
+        } else {
+            // current root is too large, so only search left
+            return sumLessThanOrEqual(root.left, key);
+        }
+    }
+
+    // SUM(l, r): sum of all keys in [l, r]
+    public long sumInRange(int low, int high) {
+        if (low > high) return 0L;
+
+        return sumLessThanOrEqual(root, high) - sumLessThanOrEqual(root, low - 1);
+    }
+
+    /*
+    inorder traversal is still useful for debugging because it prints keys in sorted order
+    */
     public void inorder() {
         inorder(root);
         System.out.println();
@@ -254,14 +343,17 @@ public class TreapCustom {
         inorder(root.right);
     }
 
-    // this function is just to help us test because
-    // our current inorder function only prints the values but we need a comparison
+    /*
+    helper to return inorder traversal as a string
+    this is mostly useful if you want additional manual checks later
+    */
     private static String inorderString(TreapCustom t) {
         return inorderString(t.root).trim();
     }
 
     private static String inorderString(Node root) {
         if (root == null) return "";
+
         String left = inorderString(root.left);
         String node = Integer.toString(root.key);
         String right = inorderString(root.right);
@@ -271,98 +363,233 @@ public class TreapCustom {
             result += left + " ";
         }
         result += node;
-        if (!right.isEmpty()) result += " " + right;
+        if (!right.isEmpty()) {
+            result += " " + right;
+        }
         return result;
     }
 
     /*
+    This helper runs one test case file.
 
+    Each input file is expected to look like:
+    Q
+    OP ...
+    OP ...
+    ...
+
+    We create a fresh treap for each file, execute all operations,
+    and collect the outputs from query operations only.
     */
-    public static void main(String[] args) {
+    private static String runOneInputFile(Path inputFile) throws IOException {
+        List<String> lines = Files.readAllLines(inputFile, StandardCharsets.UTF_8);
+
+        TreapCustom treap = new TreapCustom();
+        StringBuilder out = new StringBuilder();
+
+        // skip any leading blank lines just in case
+        int lineIndex = 0;
+        while (lineIndex < lines.size() && lines.get(lineIndex).trim().isEmpty()) {
+            lineIndex++;
+        }
+
+        // empty file means empty output
+        if (lineIndex >= lines.size()) {
+            return "";
+        }
+
+        int q = Integer.parseInt(lines.get(lineIndex).trim());
+        lineIndex++;
+
+        // process exactly q operations, skipping blank lines if they appear
+        for (int i = 0; i < q && lineIndex < lines.size(); i++, lineIndex++) {
+            String line = lines.get(lineIndex).trim();
+
+            if (line.isEmpty()) {
+                i--;
+                continue;
+            }
+
+            String[] parts = line.split("\\s+");
+            String op = parts[0];
+
+            switch (op) {
+                case "INSERT": {
+                    int x = Integer.parseInt(parts[1]);
+                    treap.insert(x);
+                    break;
+                }
+
+                case "DELETE": {
+                    int x = Integer.parseInt(parts[1]);
+                    treap.delete(x);
+                    break;
+                }
+
+                case "SEARCH": {
+                    int x = Integer.parseInt(parts[1]);
+                    out.append(treap.search(x) ? "true" : "false").append('\n');
+                    break;
+                }
+
+                case "KTH": {
+                    int k = Integer.parseInt(parts[1]);
+                    Integer ans = treap.kth(k);
+
+                    // if a test asks for invalid kth, we print null
+                    out.append(ans == null ? "null" : ans).append('\n');
+                    break;
+                }
+
+                case "COUNT": {
+                    int x = Integer.parseInt(parts[1]);
+                    out.append(treap.countLessThanOrEqual(x)).append('\n');
+                    break;
+                }
+
+                case "RANGE": {
+                    int l = Integer.parseInt(parts[1]);
+                    int r = Integer.parseInt(parts[2]);
+                    out.append(treap.countInRange(l, r)).append('\n');
+                    break;
+                }
+
+                case "SUM": {
+                    int l = Integer.parseInt(parts[1]);
+                    int r = Integer.parseInt(parts[2]);
+                    out.append(treap.sumInRange(l, r)).append('\n');
+                    break;
+                }
+
+                default:
+                    throw new IllegalArgumentException(
+                            "Unknown operation in " + inputFile.getFileName() + ": " + op
+                    );
+            }
+        }
+
+        return normalizeOutput(out.toString());
+    }
+
+    /*
+    normalize output so that tiny formatting differences do not break tests
+
+    We:
+    - remove carriage returns
+    - trim each line
+    - drop blank lines
+    - join everything back with \n
+    */
+    private static String normalizeOutput(String s) {
+        return Arrays.stream(s.replace("\r", "").split("\n"))
+                .map(String::trim)
+                .filter(line -> !line.isEmpty())
+                .collect(Collectors.joining("\n"));
+    }
+
+    // compare two outputs after normalization
+    private static boolean compareOutputs(String actual, String expected) {
+        return normalizeOutput(actual).equals(normalizeOutput(expected));
+    }
+
+    /*
+    This is the folder-based test runner.
+
+    It:
+    - looks inside inputoutputtests
+    - finds every file ending in _in.txt
+    - matches it to the corresponding _out.txt
+    - runs the input file
+    - compares actual vs expected
+    - prints PASS/FAIL
+    */
+    private static void runAllFolderTests(String folderName) throws IOException {
+        Path folder = Paths.get(folderName);
+
+        if (!Files.exists(folder) || !Files.isDirectory(folder)) {
+            System.out.println("Test folder not found: " + folder.toAbsolutePath());
+            System.out.println("Make sure the folder '" + folderName + "' exists where you run the program.");
+            return;
+        }
+
+        List<Path> inputFiles;
+        try (var stream = Files.list(folder)) {
+            inputFiles = stream
+                    .filter(p -> Files.isRegularFile(p))
+                    .filter(p -> p.getFileName().toString().endsWith("_in.txt"))
+                    .sorted(Comparator.comparing(p -> p.getFileName().toString()))
+                    .collect(Collectors.toList());
+        }
+
+        if (inputFiles.isEmpty()) {
+            System.out.println("No *_in.txt files found in: " + folder.toAbsolutePath());
+            return;
+        }
+
         int passed = 0;
-        int total = 7;
+        int total = 0;
 
-        // basic insert and search
-        TreapCustom treaps = new TreapCustom();
-        treaps.insert(5);
-        treaps.insert(3);
-        treaps.insert(7);
-        treaps.insert(2);
-        treaps.insert(4);
-        boolean testinsert = treaps.search(5) && treaps.search(2) && !treaps.search(6);
-        System.out.println("Test 1: insert/search is a" + (testinsert ? "PASS" : "FAIL"));
-        if (testinsert) {
-            passed++;
+        for (Path inputFile : inputFiles) {
+            total++;
+
+            String inputName = inputFile.getFileName().toString();
+            String outputName = inputName.replaceFirst("_in\\.txt$", "_out.txt");
+            Path outputFile = folder.resolve(outputName);
+
+            // if matching output file is missing, that test automatically fails
+            if (!Files.exists(outputFile)) {
+                System.out.println("[FAIL] " + inputName + " -> missing expected file " + outputName);
+                continue;
+            }
+
+            String actual = runOneInputFile(inputFile);
+            String expected = normalizeOutput(Files.readString(outputFile, StandardCharsets.UTF_8));
+
+            boolean ok = compareOutputs(actual, expected);
+
+            if (ok) {
+                passed++;
+                System.out.println("[PASS] " + inputName);
+            } else {
+                System.out.println("[FAIL] " + inputName);
+
+                System.out.println("  Expected:");
+                if (expected.isEmpty()) {
+                    System.out.println("  <empty>");
+                } else {
+                    for (String line : expected.split("\n")) {
+                        System.out.println("  " + line);
+                    }
+                }
+
+                System.out.println("  Actual:");
+                if (actual.isEmpty()) {
+                    System.out.println("  <empty>");
+                } else {
+                    for (String line : actual.split("\n")) {
+                        System.out.println("  " + line);
+                    }
+                }
+            }
         }
 
-        // make sure inorder is right
-        // test inorder should be 2 3 4 5 7 because we inserted those values
-        String expected = "2 3 4 5 7";
-        String actual = inorderString(treaps);
-        boolean testinorder = expected.equals(actual);
-        System.out.println("Test 2: inorder is a " + (testinorder ? "PASS" : "FAIL"));
-        if (testinorder) {
-            passed++;
+        // final summary
+        System.out.println();
+        System.out.println("Passed " + passed + " / " + total + " test files.");
+    }
+
+    public static void main(String[] args) {
+        String folderName = "inputoutputtests";
+
+        // allow user to optionally pass a folder path on the command line
+        if (args.length >= 1) {
+            folderName = args[0];
         }
 
-        // delete
-        // test that we went from 2 3 4 5 7 to 2 4 5 7 and that search for the deleted node returns false
-        treaps.delete(3);
-        String expecteddel = "2 4 5 7";
-        String actualdel = inorderString(treaps);
-        boolean testdel = expecteddel.equals(actualdel) && !treaps.search(3);
-        System.out.println("Test 3: delete is a " + (testdel ? "PASS" : "FAIL"));
-        if (testdel) {
-            passed++;
-        }
-
-        // Test Case 4: if we try to delete something that doesnt exist it wont change
-        treaps.delete(42);
-        String expected4 = "2 4 5 7";
-        String actual4 = inorderString(treaps);
-        boolean test4 = expected4.equals(actual4);
-        System.out.println("Test 4: delete something that doesnt exist  " + (test4 ? "PASS" : "FAIL") + " (got: " + actual4 + ")");
-        if (test4) {
-            passed++;
-        }
-
-        // Test Case 5: KTH smallest (after delete 3)
-        boolean test5 = treaps.findkthsmallest(treaps.root, 1).key == 2
-                && treaps.findkthsmallest(treaps.root, 2).key == 4
-                && treaps.findkthsmallest(treaps.root, 3).key == 5
-                && treaps.findkthsmallest(treaps.root, 4).key == 7
-                && treaps.findkthsmallest(treaps.root, 5) == null;
-        System.out.println("Test 5: kth smallest  " + (test5 ? "PASS" : "FAIL"));
-        if (test5) {
-            passed++;
-        }
-
-        // Test Case 6: COUNT <= x
-        boolean test6 = treaps.countLessThanOrEqual(treaps.root, 1) == 0
-                && treaps.countLessThanOrEqual(treaps.root, 2) == 1
-                && treaps.countLessThanOrEqual(treaps.root, 4) == 2
-                && treaps.countLessThanOrEqual(treaps.root, 5) == 3
-                && treaps.countLessThanOrEqual(treaps.root, 6) == 3
-                && treaps.countLessThanOrEqual(treaps.root, 7) == 4;
-        System.out.println("Test 6: count <= x  " + (test6 ? "PASS" : "FAIL"));
-        if (test6) {
-            passed++;
-        }
-
-        // Test Case 7: RANGE count
-        boolean test7 = treaps.countInRange(treaps.root, 0, 1) == 0
-                && treaps.countInRange(treaps.root, 2, 2) == 1
-                && treaps.countInRange(treaps.root, 2, 4) == 2
-                && treaps.countInRange(treaps.root, 3, 6) == 2
-                && treaps.countInRange(treaps.root, 4, 7) == 3;
-        System.out.println("Test 7: range count  " + (test7 ? "PASS" : "FAIL"));
-        if (test7) {
-            passed++;
-        }
-
-        // test that all of our cases passed and return to user!
-        System.out.println("\nwhen running my treaps you got: " + passed + " / " + total + " tests passed.");
-        if (passed != total) {
+        try {
+            runAllFolderTests(folderName);
+        } catch (Exception e) {
+            e.printStackTrace();
             System.exit(1);
         }
     }

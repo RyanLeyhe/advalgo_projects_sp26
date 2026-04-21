@@ -1,7 +1,7 @@
 PC Test Cases 
 
 - Each input txt file starts with Q, the number of operations.
-- Only query operations produce output lines: SEARCH, KTH, COUNT, RANGE.
+- Only query operations produce output lines: SEARCH, KTH, COUNT, RANGE, SUM.
 - SEARCH outputs lowercase true/false.
 - For RANGE l r, if l > r then the expected output is 0.
 
@@ -25,7 +25,7 @@ Case index:
 - `15_increasing_inserts_then_queries`: insert increasing sequence (worst case for BST), then queries.
 - `16_decreasing_inserts_then_queries`: insert decreasing sequence (worst case for BST), then queries.
 - `17_mixed_updates_then_queries`: mixed insert/delete/insert churn, then queries.
-- `18_large_values_and_edges`: huge values near bounds (0 and 1e9), then edge queries.
+- `18_sum_focus`: It is designed to catch: normal interval sums, full-span sums, single-element sums, empty-range sums, reversed-range behavior, sum after deletion, sum when the queried interval has no elements.
 - speed test: `19_speed_bulk_insert_delete_prefix`: humongous insert then bulk delete some starting values, then a few queries (includes reversed RANGE).
 - speed test: `20_speed_two_phase_delete_reinsert_block`: insert all, delete a block, reinsert part of it, then queries (includes reversed RANGE).
 
