@@ -60,7 +60,7 @@ public class Solution {
         results.append('\n');
         
         for (int i = 0; i < queries; i++){
-            // tree.printTree();
+            tree.printTree();
             char type = scan.next().charAt(0);
             if (type == 'U'){
                 if (type == 'U'){
@@ -229,34 +229,23 @@ public class Solution {
         }
 
         public void updateHelper(int left, int right, int value, SegTreeNode curNode){
+
             pushDown(curNode);
             // no overlap
             if (curNode.right < left || curNode.left > right) return;
             // otherwise, if the range matches, just update the buffer value for the current node and you're done
             if (left <= curNode.left && curNode.right <= right){
                 curNode.buffer += value;
+                pushDown(curNode);
                 return;
             }
-            
-            // leaf
-            if (curNode.left == curNode.right){
-                curNode.val += value;
-                curNode.minRemaining -= value;
-                return;
-            }
-
-            
             // if it splits the middle, call the recursive call on both halves of the query
-            int mid = curNode.left + ((curNode.right - curNode.left) / 2);
-            curNode.val += (1 + right - left) * value;
-            if (left <= mid) {
-                updateHelper(left, Math.min(right, mid), value, curNode.leftChild);
-            }
-            if (right > mid) {
-                updateHelper(Math.max(left, mid + 1), right, value, curNode.rightChild);
-            }
+            int mid = (curNode.left + curNode.right) / 2;
+            // curNode.val += (1 + right - left) * value;
+            updateHelper(left, Math.min(right, mid), value, curNode.leftChild);
+            updateHelper(Math.max(left, mid + 1), right, value, curNode.rightChild);
 
-            // merge(curNode);
+            merge(curNode);
         }
 
         public void printTree() {
