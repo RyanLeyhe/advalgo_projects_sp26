@@ -241,15 +241,7 @@ def decode_transmission(corrupted_bwt):
 
     # If the BWT has no ?, you can decode it immediately.
     if len(replacement_characters) == 0:
-        decoded_message = inverse_bwt(corrupted_bwt)
-        
-        # Verify that the decoded message produces this BWT.
-        # This ensures that the reconstruction is valid.
-        if bwt(decoded_message + "$") == corrupted_bwt:
-            return decoded_message
-        
-        # If this check fails, the transmission could not be decoded.
-        return None
+        return inverse_bwt(corrupted_bwt)
     
     # Keep track of the smallest decoded message seen.
     smallest_message = None
