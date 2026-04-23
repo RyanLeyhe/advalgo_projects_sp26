@@ -25,7 +25,7 @@ Go [back to home page](../../index.html)
 <a name="overview"></a>Slides
 ---------------------------------------
 
-- [Presentation Slides](./slides/presentation_coinChange.pptx)
+- [Presentation Slides](./slides/Burrows-Wheeler-Transform.pptx)
 
 
 <a name="overview"></a>Programming Challenge
